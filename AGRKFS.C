@@ -1,0 +1,117 @@
+#include <graphics.h>
+#include <stdlib.h>
+#include <dos.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include "agreg.h"
+
+void okoef(int kn,int y,int n) /*печатает на экp индивид коеф*/
+ {
+	char bufer[4]={0,0,0,0};
+	int m;
+	 m=mast;
+	 dam();
+	 setviewport(256+x0+kn*48,8*dly+y*dly*2-4,280+x0+kn*48,9*dly+y*dly*2-2,1);
+	 clearviewport();
+	 sprintf(bufer,"%d",n);
+	 setcolor(RMCOLOR);
+	 outtextxy(0,4,bufer);
+	 if(m) eam();
+ } /**/
+
+void mkset(void) /*меню коеф*/
+ {
+	int x,y;
+	int c,a;
+	 for(c=0;c<4;c++) okoef(c,2,(int)(avptr->prmk[c].p));
+	 setviewport(0,0,639+x0,dly*25-3,1);
+	 x=0;y=0;
+	 inblok(32+6*x,8+y*2,3);
+	 a=0;
+	 while(a!=27)
+		{
+		 a=getch2(1);
+		 inblok(32+6*x,8+y*2,3);
+		 switch(a)
+			{
+			 case 0  : break;
+			 case 77 : if(x<3) x++; else x=0;break;
+			 case 75 : if(x>0) x--; else x=3;break;
+			 case 80 :
+				chpar[x][y]--;
+				okoef(x,y,chpar[x][y]);
+				setviewport(0,0,639+x0,dly*25-3,1);
+				break;
+			 case 72 :
+				chpar[x][y]++;
+				okoef(x,y,chpar[x][y]);
+				setviewport(0,0,639+x0,dly*25-3,1);
+				break;
+			 case 9  : if(y==0) y=1; else if(y==1) y=0;break;
+			}
+		 inblok(32+6*x,8+y*2,3);
+		 adcget();
+		 for(c=0;c<4;c++) okoef(c,2,(int)(avptr->prmk[c].p));
+		 setviewport(0,0,639+x0,dly*25-3,1);
+		 if(a==27) break;
+		 a=0;
+		}
+} /**/
+
+
+void koefset(void)     /*$$$$*/
+{
+ int c,k,v;
+ char *buff;
+ FILE *fp;
+ avptr->flagprm=1;
+ setviewport(0,0,639+x0,dly*25-3,1);
+ buff=malloc(imagesize(200+x0,5*dly,440+x0,15*dly));
+ getimage(200+x0,5*dly,440+x0,15*dly,buff);
+ setviewport(200+x0,5*dly,440+x0,15*dly,1);
+ clearviewport();
+ setcolor(LIGHTCYAN);
+ line(0,0,0,10*dly);
+ line(48,0,48,10*dly);
+ line(96,0,96,10*dly);
+ line(144,0,144,10*dly);
+ line(192,0,192,10*dly);
+ line(240,0,240,10*dly);
+ line(0,0,240,0);
+ line(0,2*dly,240,2*dly);
+ line(0,4*dly,240,4*dly);
+ line(0,6*dly,240,6*dly);
+ line(0,8*dly,240,8*dly);
+ line(0,10*dly,240,10*dly);
+ setcolor(YELLOW);
+ outtextxy(0,dly,"   N     1     2     3     4  ");
+ outtextxy(0,dly*3,"   K  ");
+ outtextxy(0,dly*5,"   O  ");
+ outtextxy(0,dly*7,"   P  ");
+ outtextxy(0,dly*9,"   С  ");
+ for(c=0;c<4;c++) for(k=0;k<2;k++) okoef(c,k,chpar[c][k]);
+ for(c=0;c<4;c++) okoef(c,3,light[c]);
+ mkset();
+ putimage(200+x0,5*dly,buff,0);
+ free(buff);
+ fp=fopen("agreg.dat","wb");
+ for(c=0;c<4;c++)
+	{
+	 fprintf(fp,"%d;k%d\r\n",chpar[c][0],c+1);
+	 fprintf(fp,"%d;o%d\r\n",chpar[c][1],c+1);
+	}
+ fprintf(fp,"%d;tkor\r\n",tkor);
+ fprintf(fp,"%d;tmd\r\n",tmd);
+ fprintf(fp,"%d;rdy\r\n",rdy);
+ fprintf(fp,"%d;dryb\r\n",rdyb);
+ fprintf(fp,"%d;egmd\r\n",egmd);
+ fprintf(fp,"%d;v2\r\n",v2);
+ fprintf(fp,"%d;kgplus\r\n",kgplus);
+ fprintf(fp,"%d;delcl\r\n",delcl);
+ fprintf(fp,"%d;hynday\r\n",hynday);
+ fprintf(fp,"%d;mouse\r\n",mprm);
+
+ fclose(fp);
+ avptr->flagprm=0;
+} /**/
+

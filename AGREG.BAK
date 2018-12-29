@@ -1,0 +1,1122 @@
+#include <graphics.h>
+#include <stdlib.h>
+#include <dos.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys\stat.h>
+#include "agreg.h"
+#include <time.h>
+extern void far TSR_AP(void);
+
+/*
+É7Ñ6Ñ5Ñ4Ñ3Ñ2Ñ1Ñ0»
+º ³ ³ ³ ³ ³     º
+ÈËÏÍÏÍÏËÏËÏËÏÍÏË¼
+ º     º º ÈÍÍÍÊÍÍÍÍÍÍ> ŽŒ… Š€€‹€
+ º     º ÈÍÍÍÍÍÍÍÍÍÍÍÍ> “‘Š €–,0(€ ŠŽŽ’‹™… ‚…ŒŸ)-„‹Ÿ “‘Š€.
+ ÈÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍ> ­ £à¥¢
+*/
+struct allvar wrkav;
+struct allvar savav;
+struct allvar *avptr;
+int delcl;
+int mixf=0;/*0=off 1=on*/
+int cl0=0;      /*ä®­  MDA - 0      EGA - 0*/
+int cl1=1;     /*æ¢¥â MDA - 1      EGA - 15*/
+int x0=50;   /*  á¤¢¨£ ¯® å ª®®à¤¨­ â¥ EGA - 0    MDA - 50*/
+int	dly= 14;
+int gpi=1;
+float gvs= 14*5.0;  /* à §¬¥à ¯® ¢¥àâ¨ª «¨ ¬ «¥­ìª®£® £à ä¨ª  */
+int tgr0=0; /* §­ ç¥­¨¥ â¥¬¯¥p âãpë áç¨â ­­®¥ á  æ¯*/
+int tc0=0xf;  /* §­ ç¥­¨¥ à¥£ã«ïâ®à  â¥¬¯¥p âãpë */
+float tcross[256]=
+{0.0,  0.0, 20.8, 20.9, 21.0, 21.1, 21.1, 21.2, 21.3, 21.4,
+21.4, 21.5, 21.6, 21.7, 21.7, 21.8, 21.9, 22.0, 22.1, 22.1,
+22.2, 22.3, 22.4, 22.4, 22.5, 22.6, 22.7, 22.7, 22.8, 22.9,
+23.0, 23.1, 23.1, 23.2, 23.3, 23.4, 23.4, 23.5, 23.6, 23.7,
+23.8, 23.8, 23.9, 24.0, 24.1, 24.1, 24.2, 24.3, 24.4, 24.4,
+24.5,24.6,24.7,24.8,24.8,24.9,25.0,25.1,25.1,25.2,
+25.3,25.4,25.4,25.5,25.6,25.7,25.8,25.8,25.9,26.0,
+26.1,26.1,26.2,26.3,26.4,26.4,26.5,26.6,26.7,26.8,
+26.8,26.9,27.0,27.1,27.1,27.2,27.3,27.4,27.4,27.5,
+27.6,27.7,27.8,27.8,27.9,28.0,28.1,28.1,28.2,28.3,
+28.4,28.4,28.5,28.6,28.7,28.8,28.8,28.9,29.0,29.1, /*100*/
+29.1,29.2,29.3,29.4,29.4,29.5,29.6,29.7,29.8,29.8,
+29.9,30.0,30.1,30.1,30.2,30.3,30.4,30.4,30.5,30.6,
+30.7,30.8,30.8,30.9,31.0,31.1,31.1,31.2,31.3,31.4,
+31.5,31.5,31.6,31.7,31.8,31.8,31.9,32.0,32.1,32.1,
+32.2,32.3,32.4,32.5,32.5,32.6,32.7,32.8,32.8,32.9,
+33.0,33.1,33.1,33.2,33.3,33.4,33.5,33.5,33.6,33.7,
+33.8,33.8,33.9,34.0,34.1,34.1,34.2,34.3,34.4,34.5,
+34.5,34.6,34.7,34.8,34.8,34.9,35.0,35.1,35.1,35.2,
+35.3,35.4,35.5,35.5,35.6,35.7,35.8,35.8,35.9,36.0,
+36.1,36.1,36.2,36.3,36.4,36.5,36.5,36.6,36.7,36.8, /*200*/
+36.8, 36.9, 37.0, 37.1, 37.1, 37.2, 37.3, 37.4, 37.5, 37.5,  /*210*/
+37.6, 37.7, 37.8, 37.8, 37.9, 38.0, 38.1, 38.1, 38.2, 38.3,
+38.4,38.5,38.5,38.6,38.7,38.8,38.8,38.9,39.0,39.1,
+39.2,39.2,39.3,39.4,39.5,39.5,39.6,39.7,39.8,39.8,
+39.9,40.0,40.1,40.2,40.2,40.2};
+int chpar[4][2]={{127,0},{127,0},{127,0},{127,0}};
+/* chpar - ¯ à ¬¥âàë ãá¨«¥­¨ï ¨ ¯®áâ®ï­­®© á®áâ ¢«ïîé¥© ª ­ «®¢ */
+unsigned char DRB;  /*¡ ©â ¯¥à¥¤ îé¨© ¯ à ¬¥âàë â ©¬¥à­®ë ¯à®£à ¬¬¥*/
+unsigned int SEG_DRB,OFF_DRB;
+unsigned char adccop=0;
+unsigned char dbccop=0xc7;
+unsigned char ctlcop=0xf4|8;  /* ¯ ¯¨­ë èâãçª¨-¤àîçª¨ */
+unsigned char pacop=0;
+unsigned char pbcop=0;
+unsigned char pccop=0;
+int speed=1200;            /*áª®à®áâì*/
+int egmd;    /* 0 - ega   1 - £¥àªã«¥á*/
+int v2=1;      /* 0- áâ à®¥ ¦¥«¥§® 1- ­®¢®¥ ¦¥«¥§® */
+int tkor=0;      /* â¥¬¯¥à âãà­ ï ª®àà¥ªâ¨à®¢ª  */
+int tmd=0;      /* 0- áâ àë© ¨§¬¥à¨â¥«ì 1- ­®¢ë© ¨§¬¥à¨â¥«ì */
+int rdy=0;      /* 0- ¡¥§ ¨á¯ á¨£­ rdy 1- ¨á¯®«ì§ã¥¬ á¨£­ « rdy*/
+int rdyb=0;     /* 0- ®¡ëç­ë© rdy 1- ¡ àª £ ­®¢áª¨© rdy*/
+int kgplus=0;   /* 0-â®«ìª®  £à¥£®¬¥âà 1-á«¥¤¨âì §  â¥¬¯¥à â ª®ã£ã«®¬¥âà  */
+int hynday=5;  /* ¯à¨­â¥à 5-hynday  3-epson lx-100 */
+char chn[4]={0xff,0xff,0xff,0xff};    /*ª ­ «  ff-¢ª« ;0-¢ëª«*/
+char flproc[4]={0xff,0xff,0xff,0xff};  /*ª ­ «  ff-¨§¬ ;0-­¥ ¨§¬*/
+unsigned char light[5]={12,12,12,12,12};
+char buffbln[4][940];
+float fff;
+float tk[4]={4.0,4.0,4.0,4.0};
+char monf=0;
+unsigned int KD= (unsigned int) (1193180.0/100.0)  ; /*120*/
+int no = 8;
+int io = 0;
+
+
+void delms(int ms)
+{
+ int i,j,n,d,a,b,al;
+ unsigned char din;
+/* a=(int)(1193180.0/(tone/2)); al=a/2; b=a&0xff; a=a>>8; */
+ a=2386 ; al=a/2; b=a&0xff; a=a>>8;
+ outportb(0x43,0xb6); outportb(0x42,b); outportb(0x42,a);
+ din=inportb(0x61); din=din&(0xfc); outportb(0x61,din|1);
+
+ for(i=0; i<ms; i++)
+  {
+	 do {outportb(0x43,0x80);b=inportb(0x42);a=inportb(0x42);a=a<<8;a=a|b;}
+          while(a>al);
+	 do {outportb(0x43,0x80);b=inportb(0x42);a=inportb(0x42);a=a<<8;a=a|b;}
+          while(a<al);
+	}
+ nosound();
+} /*delms*/
+
+
+
+void iniwrkav(void)
+{
+ avptr=&wrkav;
+ memset(avptr,0,sizeof(wrkav));
+ wrkav.fxl=1; /*ä« £ ¢ë¢®¤  avptr->prmk ­  íªp ­*/
+ wrkav.invflag=1;  /* ä« £ ­®¢®£® íªp ­  ¤«ï £« ¢­®£® ¬¥­î */
+ wrkav.apprx=3;
+ wrkav.told=37.0;
+}
+
+
+void chnset(void)
+{
+ int n,c,y;
+ char *buff;
+ char bufer[15];
+ setviewport(10+x0,dly*23,600+x0,dly*24-1,1);
+ clearviewport();
+ setviewport(0,0,639+x0,dly*25-3,1);
+ outtextxy(10+x0,dly*23,"Enter - ¢ª«/¢ëª« ; - ¢¢¥àå ; - ¢­¨§ ;Esc - ¢ëå®¤");
+ buff=malloc(imagesize(390+x0,13*dly,518+x0,21*dly));
+ getimage(390+x0,13*dly,518+x0,21*dly,buff);
+ line(390+x0,dly*13,390+16*8+x0,dly*13);
+ line(390+16*8+x0,dly*13,390+16*8+x0,dly*19+1);
+ line(390+x0,dly*19+1,390+16*8+x0,dly*19+1);
+ line(390+x0,dly*13,390+x0,dly*19+1);
+ outtextxy(390+x0,dly*14,"  ‚Š‹ž—ˆ’œ ‚‘…");
+ for(n=0;n<4;n++)
+ {
+  setviewport(406+x0,(15+n)*dly,502+x0,(16+n)*dly,1);
+	sprintf(bufer,"%d - %s",n+1,(chn[n]==0)?"‚›Š‹ž—…":"‚Š‹ž—…");
+  outtext(bufer);
+ }
+ setviewport(0,0,639+x0,dly*25-3,1);
+ y=0;
+ inblok(50,14+y,14);
+ for(c=0;c!=27;c=getch1(0))
+ {
+  switch(c)
+  {
+   case 72 :inblok(50,14+y,14);if(y>0) y--;else y=4;inblok(50,14+y,14);break;
+   case 80 :inblok(50,14+y,14);if(y<4) y++;else y=0;inblok(50,14+y,14);break;
+   case 13 :
+          if(y==0) for(n=0;n<4;n++) chn[n]=0xff;
+          else if(y!=0) chn[y-1]=~chn[y-1];
+          setviewport(0,0,639+x0,dly*25-3,1);
+					inblok(50,14+y,14);
+          for(n=0;n<4;n++)
+           {
+           setviewport(400+x0,(15+n)*dly,512+x0,(16+n)*dly,1);
+           clearviewport();
+           setviewport(406+x0,(15+n)*dly,502+x0,(16+n)*dly,1);
+					 sprintf(bufer,"%d - %s",n+1,(chn[n]==0)?"‚›Š‹ž—…":"‚Š‹ž—…");
+           outtext(bufer);
+           }
+           setviewport(0,0,639+x0,25*dly-3,1);
+           inblok(50,14+y,14);
+            break;
+   case 0  :break;
+  }
+ }
+ setviewport(0,0,639+x0,dly*25-3,1);
+ putimage(390+x0,13*dly,buff,0);
+ free(buff);
+ avptr->fxl=1;
+} /*chanel set*/
+
+void prmscr(int ch)  /*¢ë¢®¤¨â ­  íªp ­ ppp prp ¨ â¤ ¨­®£¤  */
+{
+ char bufer[40];
+ static struct prmt prold[4];
+ static char chnold[4];
+ int x,y,a;
+ x=0;y=0;
+ if(avptr->flagprm==1) return;
+ switch(ch)
+  {
+	 case 0 : x=32;  y=dly;  break;
+	 case 1 : x=344; y=dly;  break;
+   case 2 : x=32;  y=dly*11; break;
+   case 3 : x=344; y=dly*11; break;
+  }
+	sprintf(bufer,"P   =%3d    T   =%3d   Š€€‹ %d",(int)(avptr->prmk[ch].p),avptr->prmk[ch].t+1,ch+1);
+	if(((int)(avptr->prmk[ch].p)!=prold[ch].p)||(prold[ch].t!=avptr->prmk[ch].t)||(avptr->fxl==1))
+  {
+   setviewport(x+x0+4*8,y,x+x0+8*8,y+dly-2,1);
+   clearviewport();
+   setviewport(x+x0+17*8,y,x+x0+8*21,y+dly-2,1);
+   clearviewport();
+   setviewport(x+x0,y,x+248+x0,y+dly+1,1);
+   outtext(bufer);
+  }
+ sprintf(bufer,"PPP =%3d    PRP =%3d   %s",avptr->prmk[ch].ppp,avptr->prmk[ch].prp,(chn[ch]==0)?"‚›Š‹ž—…":"‚Š‹ž—…");
+ if((prold[ch].ppp!=avptr->prmk[ch].ppp)||(prold[ch].prp!=avptr->prmk[ch].prp)||(avptr->fxl==1))
+  {
+   setviewport(x+x0+4*8,y+dly+1,x+x0+8*8,y+dly*2-2,1);
+   clearviewport();
+   setviewport(x+x0+8*17,y+dly+1,x+x0+8*21,y+dly*2-2,1);
+   clearviewport();
+   setviewport(x+x0,y+dly+1,x+256+x0,y+dly*2-2,1);
+   outtext(bufer);
+  }
+	if((chnold[ch]!=chn[ch])||(avptr->fxl==1))
+  {
+   setviewport(x+x0+8*21,y+dly+1,x+x0+8*34,y+dly*2-2,1);
+   clearviewport();
+   setviewport(x+x0,y+dly+1,x+256+x0,y+dly*2-2,1);
+   outtext(bufer);
+  }
+ avptr->fxl=0;
+ setviewport(0,0,639+x0,dly*25-3,1);
+ prold[ch].p=(int)(avptr->prmk[ch].p);
+ prold[ch].t=avptr->prmk[ch].t;
+ prold[ch].ppp=avptr->prmk[ch].ppp;
+ prold[ch].prp=avptr->prmk[ch].prp;
+ chnold[ch]=chn[ch];
+} /*prmscreen*/
+
+
+void adcget(void)   /*¯®ª § ­¨ï á €–   ±±±±±±±±±*/
+{
+ int a,tgr;
+ int i,j,l,k=10;
+ unsigned int ii;
+ int s[6];
+ char ctlsav;
+  for(j=0;j<5;j++) s[j]=0;
+ ctlcop=ctlcop&0xf8; ctlsav=ctlcop;
+ for(j=0; j<5; j++)
+  {
+	 ctlcop=ctlcop|j;
+	 outportb(CTL,ctlcop);
+	 delms(10);
+   for(l=0;l<k;l++)
+		{if(rdyb)
+		 {ctlcop=ctlcop|0x8;outportb(CTL,ctlcop);inportb(ADC);
+			i=0x8; ctlcop=ctlcop&(~i);outportb(CTL,ctlcop);
+		 }
+		 else
+		 {i=0x8; ctlcop=ctlcop&(~i);outportb(CTL,ctlcop);ctlcop=ctlcop|0x8;
+			outportb(CTL,ctlcop); if(!rdy) delms(1);
+		 }
+			s[j]=inportb(ADC) + s[j]; delms(1);
+		}
+	 ctlcop=ctlcop&(~j);
+	 outportb(CTL,ctlcop);
+  }
+ ctlcop=ctlsav|4|8;
+ outportb(CTL,ctlcop);
+ tgr=(int) ((1.0*s[4])/(1.0*k));
+ if(tmd) tgr=255-tgr;
+ if(tkor)
+ {if(tkor>0) if(tkor+tgr<255) tgr+=tkor; else;
+				else if(tkor+tgr>0) tgr+=tkor;
+ }
+ tgr0=tgr;
+ for(j=0;j<4;j++)
+	 if(chn[j]==0xff)
+  {
+	 ii=255-(s[j]/k) + (int) ( (tcross[tgr] -37.0) *tk[j] );
+	 ii=ii+chpar[j][1];
+   avptr->prmk[j].p=(ii*127)/chpar[j][0];
+	}
+}/*adcget*/
+
+void ifkb(void)
+{
+ int a;
+ while(!kbhit())
+ {
+	adcget();
+	for(a=0;a<4;a++) prmscr(a);
+ }
+} /*ifkb */
+
+
+
+
+void imnk(int flp)
+{
+int x,x1=8;
+char bufer[5][5][17]={{"     …„€Ÿ     ","    Žƒ€’€Ÿ     ","    Ž–…‘‘     ","     Š€€‹      ","    ‘ŠŽŽ‘’œ    "},
+{"    “‘Š ‚‘…    ","    “‘Š  1     ","    “‘Š  2     ","    “‘Š  3     ","    “‘Š  4     "},
+{"    ‘’Ž ‚‘…    ","    ‘’Ž  1     ","    ‘’Ž  2     ","    ‘’Ž  3     ","    ‘’Ž 4      "},
+{"     Š€€‹      ","     …—€’œ     ","     ‚›•Ž„      ","    €‘—…’      ","  ‚›Ž ’Ž—Šˆ   "}};
+for(x=0;x<5;x++)
+ {
+  setviewport(x1+x0,21*dly-2,x1+114+x0,22*dly-3,1);
+  clearviewport();
+  outtextxy(0,1,bufer[flp][x]);
+  x1+=128;
+ }
+ setviewport(0,0,639+x0,dly*25-3,1);
+ avptr->invflag=1;
+} /**/
+
+void process(void)
+{
+ int  a,x=0,i;
+ int c;
+ if(!mixf) {MIX_ON();mixf=1;}
+ pixn(0);
+ imnk(1);
+ for(c=0;c<4;c++)
+ { if(avptr->prmk[c].ppp==0) avptr->prmk[c].ppp=255;
+	 if(avptr->prmk[c].prp==0) avptr->prmk[c].prp=16;
+	 if ((avptr->prmk[c].ppp-avptr->prmk[c].prp) < 1)
+	 { avptr->prmk[c].ppp=255; avptr->prmk[c].prp=16; }
+	 avptr->prmk[c].ppl=avptr->prmk[c].ppp;
+	 avptr->prmk[c].prl=avptr->prmk[c].prp;
+	 crdr(c,gvs/(avptr->prmk[c].ppp-avptr->prmk[c].prp));
+ }
+ mainh(10);
+ inblok(x*8+1,21,14);
+ for(a=0;a!=27;a=getch1(0))
+ {
+  switch(a)
+  {
+   case 0  : break;
+   case 75 : inblok(x*16+1,21,14);if(x>0) x--;else x=4;inblok(x*16+1,21,14);break;
+	 case 77 : inblok(x*16+1,21,14);if(x<4) x++;else x=0;inblok(x*16+1,21,14);break;
+	 case 59 : help();break;
+   case 13 :
+						 inblok(x*16+1,21,14);
+						 vproc(x);
+						 avptr->tcnt=0;
+             grmene(0);
+             return;
+  }
+ ifkb();
+ }
+inblok(x*16+1,21,14);
+vproc(x);
+imnk(0);
+inblok(33,21,14);
+grmene(0);
+return;
+} /**/
+
+void crdr(int nm,float kf) /*p¨áã¥â ¬ «¥­ìªãî ª®®p¤*/
+{
+ int val[16]={24,3,304,9,336,3,616,9,24,13,304,19,336,13,616,19};
+ int a;
+ int zdy,y;
+	zdy=3*dly;if(nm>1) zdy=13*dly;
+	for(a=0;a<15;a+=2) {val[a]+=x0;val[a+1]=val[a+1]*dly;}
+	a=nm;
+	setviewport(val[a*4],val[a*4+1],val[a*4+2],val[a*4+3],1);clearviewport();
+	setviewport(0,0,639+x0,dly*25-3,1);
+
+	line(val[a*4],val[a*4+1],val[a*4],val[a*4+3]);
+
+	y=(avptr->prmk[nm].ppp-avptr->prmk[nm].prl)*kf;
+	line(val[a*4],zdy+y,val[a*4+2],zdy+y);
+	/*	line(val[a*4],(val[a*4+3]-dly),val[a*4+2],(val[a*4+3]-dly));*/
+} /*crdr*/
+
+
+void vproc(int nkl)
+{
+ int c,cn,i,s;
+ char bufer[20];
+ float kf[4]={1.0,1.0,1.0,1.0},oldkf[4]={1.0,1.0,1.0,1.0};
+ int x[4],y[4],oldy[4]={0,0,0,0};
+ int zdy[4],zdx[4],oldfl[4];
+ int oldprp,ctm,delt;
+ unsigned char tm=0;
+ struct time tim;
+ int ab[4][16];
+ avptr->flpr=1;avptr->vs=0;
+ if(nkl==0) for(c=0;c<4;c++) {flproc[c]=chn[c];avptr->adclen[c]=0;oldfl[c]=~flproc[c];}
+ if(nkl==0) for(c=0;c<4;c++)
+			if(flproc[c]==0xff)  for(i=c+1;i<4;i++) if(flproc[i]==0xff) flproc[i]=0;
+ i=nkl;
+ if(nkl>0) {for(c=0;c<4;c++) {flproc[c]=0;avptr->adclen[c]=0;} flproc[nkl-1]=0xff;}
+ for(c=0;c<4;c++) {oldfl[c]=~flproc[c];avptr->prmk[c].ppl=avptr->prmk[c].ppp;avptr->prmk[c].prl=avptr->prmk[c].prp;}
+ adcget();  /*áç¨âë¢ ¥¬ ¤«ï ¨­¨æ¨ «¨§ æ¨¨*/
+ for(c=0;c<4;c++) for(cn=0;cn<no;cn++) ab[c][cn] = (int)(avptr->prmk[c].p);
+ imnk(2); inblok(0*16+1,21,14); getch1(0x11);
+ for(nkl=0;nkl<4;nkl++)
+	{
+	if(avptr->prmk[nkl].ppp-avptr->prmk[nkl].prp<=0)  flproc[nkl]=32;
+
+	if(avptr->prmk[nkl].ppp-avptr->prmk[nkl].prp>0)
+   {
+/*****************/
+			avptr->adclen[nkl]=0;
+			zdy[nkl]=3*dly;if(nkl>1) zdy[nkl]=13*dly;
+								 zdx[nkl]=24+x0;if((nkl==1)||(nkl==3)) zdx[nkl]=336+x0;
+			if((avptr->prmk[nkl].ppl-avptr->prmk[nkl].prl)!=0)
+			 kf[nkl]=gvs/(avptr->prmk[nkl].ppl-avptr->prmk[nkl].prl);
+
+			if(avptr->prmk[nkl].p<avptr->prmk[nkl].prl) avptr->prmk[nkl].p=avptr->prmk[nkl].prl;
+			if(kf[nkl]!=0) if(avptr->prmk[nkl].p>avptr->prmk[nkl].ppl+dly/kf[nkl]) avptr->prmk[nkl].p=avptr->prmk[nkl].ppl+dly/kf[nkl];
+				oldy[nkl]=(avptr->prmk[nkl].p-avptr->prmk[nkl].prl)*kf[nkl];
+   }
+ }
+ while(1)  /*à¨á®¢ ­¨¥ £à ä¨ª®¢ */
+	{
+		 do
+		 {
+			 gettime(&tim);
+/*			 outtext("a");
+			 setviewport(0,0,12,12,0);
+			 clearviewport();*/
+			 setviewport(0,0,639+x0,dly*25-3,1);
+		 }
+		 while(tm==tim.ti_sec);
+	 nosound();
+	 adcget();
+	 for(nkl=0;nkl<4;nkl++)
+	 {
+	 for(cn=no-1;cn>0;cn--) ab[nkl][cn] = ab[nkl][cn-1];
+	 ab[nkl][0]=(int)(avptr->prmk[nkl].p); s=0;
+	 for(cn=0;cn<no;cn++) s = s + ab[nkl][cn];
+	 avptr->prmk[nkl].p = s/no;
+	 }
+   getch1(0x11);
+   for(nkl=0;nkl<4;nkl++)
+		{
+	 if(avptr->adclen[nkl]>478)
+			 flproc[nkl]=32;
+    if(flproc[nkl]==0xff)
+     {
+			avptr->adclen[nkl]++;
+      avptr->prmk[nkl].t=avptr->adclen[nkl];
+			prmscr(nkl);
+			/*%%*/
+			if(avptr->prmk[nkl].p<avptr->prmk[nkl].prl)
+            {
+						 oldprp=avptr->prmk[nkl].prl;
+             oldkf[nkl]=kf[nkl];
+						 delt=avptr->prmk[nkl].ppl-avptr->prmk[nkl].prl;
+             delt=(int)(delt/5);
+						 avptr->prmk[nkl].prl=avptr->prmk[nkl].p-delt;
+						 kf[nkl]=gvs/(avptr->prmk[nkl].ppl-avptr->prmk[nkl].prl);
+						 crdr(nkl,kf[nkl]);
+						 for(ctm=0;ctm<avptr->adclen[nkl]-1;ctm++)
+              {
+							 avptr->gbuf[nkl][ctm]=(int)(((float)avptr->gbuf[nkl][ctm]/oldkf[nkl]+oldprp-avptr->prmk[nkl].prl)*kf[nkl]);
+							 y[nkl]=avptr->gbuf[nkl][ctm];
+							 if(ctm<avptr->adclen[nkl]-2)
+								{
+								line(zdx[nkl]+(ctm-1)/2,zdy[nkl]+oldy[nkl],zdx[nkl]+ctm/2,(zdy[nkl]+y[nkl]));
+								oldy[nkl]=y[nkl];
+								}
+              }
+            }
+			if(avptr->prmk[nkl].p>avptr->prmk[nkl].ppl+dly/kf[nkl])
+            {
+             oldkf[nkl]=kf[nkl];
+						 delt=avptr->prmk[nkl].ppl-avptr->prmk[nkl].prl;
+             delt=(int)(delt/5);
+						 avptr->prmk[nkl].ppl=avptr->prmk[nkl].p+delt;
+						 kf[nkl]=gvs/(avptr->prmk[nkl].ppl-avptr->prmk[nkl].prl);
+						 crdr(nkl,kf[nkl]);
+						 for(ctm=0;ctm<avptr->adclen[nkl]-1;ctm++)
+              {
+               avptr->gbuf[nkl][ctm]=(int)((float)(avptr->gbuf[nkl][ctm])*kf[nkl]/oldkf[nkl]);
+							 y[nkl]=avptr->gbuf[nkl][ctm];
+							 if(ctm<avptr->adclen[nkl]-2)
+								{
+								line(zdx[nkl]+(ctm-1)/2,zdy[nkl]+oldy[nkl],zdx[nkl]+ctm/2,(zdy[nkl]+y[nkl]));
+								oldy[nkl]=y[nkl];
+								}
+              }
+            }
+				/*%%*/
+			y[nkl]=(avptr->prmk[nkl].p-avptr->prmk[nkl].prl)*kf[nkl];
+			if((avptr->adclen[nkl]>10)&&(i==0)&&(nkl<4))
+													if(flproc[nkl+1]==0) flproc[nkl+1]=0xff;
+			if(avptr->adclen[nkl]<4) sound(700+500*nkl+50*avptr->adclen[nkl]*(nkl+1));
+      line(zdx[nkl]+(avptr->adclen[nkl]-1)/2,zdy[nkl]+oldy[nkl],zdx[nkl]+avptr->adclen[nkl]/2,(zdy[nkl]+y[nkl]));
+      oldy[nkl]=y[nkl];
+			avptr->gbuf[nkl][avptr->adclen[nkl]]=y[nkl];
+     }
+    }
+    for(cn=0;cn<4;cn++)
+      if(oldfl[cn]!=flproc[cn])
+       {
+        cn++;
+        setviewport(cn*128+x0+8,21*dly-2,cn*128+122+x0,22*dly-3,1);
+        clearviewport();
+
+        sprintf(bufer,"    %s  %d   ",(flproc[cn-1]==0xff)?"‘’Ž":"“‘Š",cn);
+        outtext(bufer);
+        setviewport(0,0,639+x0,dly*25-3,1);
+        if(avptr->vs==cn)   inblok(avptr->vs*16+1,21,14);
+        avptr->flpr=1;
+        cn--;
+        oldfl[cn]=flproc[cn];      /*án - ª ã­â¥à*/
+       }
+		if(kbhit())  sproc();
+		if(flproc[0]+flproc[1]+flproc[2]+flproc[3]==128)
+		 { nosound(); return;}
+	gettime(&tim);
+	tm=tim.ti_sec;
+
+ }
+} /* vproc */
+
+
+
+
+
+void sproc(void)  /*¯®ª  p¨áãîâáï ¬ «¥­ìª¨¥ £p ä¨ª¨*/
+{
+ int c,a;
+ static int x;
+ x=avptr->vs;
+/* c=chn[0]+chn[1]+chn[2]+chn[3];*/
+ if(avptr->flpr==0) inblok(x*16+1,21,14);
+ while(kbhit()) a=getch1(0);
+ switch(a)
+  {
+   case 0  : break;
+   case 75 : inblok(x*16+1,21,14);if(x>0) x--;else x=4;inblok(x*16+1,21,14);break;
+   case 77 : inblok(x*16+1,21,14);if(x<4) x++;else x=0;inblok(x*16+1,21,14);break;
+   case 13 : inblok(x*16+1,21,14);
+						 if(x==0)  for(c=0;c<4;c++) flproc[c]=32;
+						 else if(flproc[c]!=32)  flproc[x-1]=~flproc[x-1];
+             inblok(x*16+1,21,14);
+             break;
+   case 27 : break;
+   }
+ avptr->flpr=1;
+ avptr->vs=x;
+}/**/
+
+
+void grmene(int c) /*p¨á ¨ ¯®¤¯¨á ¡®«è á¨áâ ª®®p¤*/
+{
+ int k,j,zy,y,ppb,prb,old;
+ char bff[15],f;
+ int ly=BGL*dly; /*7|5*/
+ float kf,dy;
+ kf=gvs/(avptr->prmk[avptr->ach].ppl-avptr->prmk[avptr->ach].prl);
+ ppb=(avptr->prmk[avptr->ach].ppp-avptr->prmk[avptr->ach].prl)*kf;
+ prb=(avptr->prmk[avptr->ach].prp-avptr->prmk[avptr->ach].prl)*kf;
+ dy=ly+prb*LBK;          /*y-ª®®à¤ 0%*/
+ zy=ly+ppb*LBK;          /*y-ª®®à¤ 100%*/
+ dy=zy-dy;dy=dy/5;       /*ª-¢® â®ç¥ª íªà ­  ­  20%*/
+ if(c==0) while(kbhit())  getch();
+ setviewport(x0+1,8,80*8+x0-2,20*dly-1,1);
+ clearviewport();
+ setviewport(0,0,639+x0,dly*25-3,1);
+ line(50+x0,2*dly,50+x0,19*dly);  /*®à¤¨­ â    ¢¥àâ¨ª*/
+ line(50+x0,zy,620+x0,zy);    /*  ¡æëæ   y=16*dly*/
+ if(c==0) imnk(3);
+ line(50+x0,2*dly,48+x0,2*dly+6);
+ line(50+x0,2*dly,52+x0,2*dly+6);     /*áâà¥«ª  y*/
+ line(620+x0,zy,614+x0,zy-2);
+ line(620+x0,zy,614+x0,zy+2);  /*áâà¥«ª  x*/
+ old=-dly-1;
+ f=1;
+ if(dy<5) f=0;
+ if(dy>0)
+	{
+	for(k=0;zy-k*dy>5*dly;k++)             /*¯®¤¯¨áê y ª®®à¤¨­ âë ¢¢¥àx*/
+	{
+	 sprintf(bff,"%3d%%",100-k*20);
+	 if(f) outtextxy(x0+46,zy-dy*k-3,"-");
+	 if(old<k*((int)dy)-dly)
+		{
+		 if(!f) outtextxy(x0+46,zy-dy*k-3,"-");
+		 outtextxy(x0+7,zy-dy*k-3,bff);
+		 old=((int)dy)*k;
+		}
+	 }
+	old=-dly-1;
+	for(k=0;zy+k*dy<18*dly;k++)             /*¯®¤¯¨áê y ª®®à¤¨­ âë ¢­¨§*/
+	{
+	 if(100+k*20<1000) sprintf(bff,"%3d%% -",100+k*20);
+	 else if(100+k*20>999) sprintf(bff,"%3d%%-",100+k*20);
+	 if(f) outtextxy(x0+46,zy+dy*k-3,"-");
+	 if(old<k*((int)dy)-dly)
+		{
+		 outtextxy(x0+7,zy+dy*k-3,bff);
+		 old=((int)dy)*k;
+		}
+	 }
+	}
+
+
+ for(k=40;k<=480;k+=40)        /*¯®¤¯¨áê x ®®à¤¨­ âë*/
+ {
+  sprintf(bff,"%3d",k);
+	outtextxy(x0+k-3+50,zy-3,"+");
+	outtextxy(x0+k-12+50,zy+dly-7,bff);
+ }
+ outtextxy(x0+550,zy+dly-5,"¢p¥¬ï (á¥ª)");
+ outtextxy(x0+7,3*dly," £p.");
+ outtextxy(x0+7,3*dly+9,"(%)");
+ if(c==0)
+ {
+  gredm();
+  rmkl();
+ }
+}/* */
+
+
+
+int getch2(int d)
+{
+int c,g,flcop;
+for(c=0;c<500;c++)
+ {
+if((kbhit())||avptr->fun)
+		{avptr->fun=0;return getch();}
+	delms(d);
+ }
+flcop=avptr->flagprm;
+avptr->flagprm=1;
+adcget();
+getch1(0x11);
+avptr->flagprm=flcop;
+}
+
+
+
+
+int getch1(int flk) /*á«¥¤¨â §  â¥¬¯*/
+{
+ struct viewporttype wpt;
+ char buferf[15]="";
+ int g;
+ int co;
+ int s=0,a;
+ char tc;
+ if(flk==0)
+	{
+	 for(co=0;co<500;co++)
+		{if(kbhit()) return getch(); delms(2);}
+	}
+ if(gpi) getviewsettings(&wpt);
+ if((flk==0)||(flk==0x11))
+ {
+  while((!kbhit())&&(s==0))
+  {
+	 s=flk;
+	 if(kgplus==1) ktermo(kadcget());
+	 if(flk!=0x11) adcget();
+	 for(a=0;a<4;a++) {if(gpi) prmscr(a);}
+		if(gpi)
+		 {
+			setviewport(x0+296,0,x0+344,dly-6,1);
+			clearviewport();
+			sprintf(buferf,"t=%2.1f",tcross[tgr0]);
+			if(tgr0<3) sprintf(buferf,"t<20");
+			if(tgr0>240) sprintf(buferf,"t>39");
+			outtext(buferf);
+			setviewport(0,0,639+x0,dly*25-3,1);
+		 }
+		tc=newtc(tgr0);
+		ctlcop=(ctlcop&0xf)|(tc<<4); outportb(CTL,ctlcop);
+		tc0=tc;
+  }
+ }
+ if(gpi) setviewport(wpt.left,wpt.top,wpt.right,wpt.bottom,wpt.clip);
+ if(flk==0)
+ {
+  a=getch();
+  if(a==0) a=getch();
+  while(kbhit()) getch();
+	if(a==9) {koefset();a=0;}
+	if(a==63) avptr->treatflag=~avptr->treatflag;
+  return a;
+ }
+} /**/
+
+
+void adraw(int newx,int chn)  /*p¨áã¥â á¨¬¢®« áâp¥«ª¨ */
+{
+ static int oldx;
+ static int bufer[132];
+ int xd=x0+49-2;
+ int ly=BGL*dly+1; /*7|5*/
+ if(newx==0xfef)
+  {getimage(xd+oldx,(int)(ly+avptr->gbuf[chn][oldx]*LBK),xd+oldx+8,(int)(ly+avptr->gbuf[chn][oldx]*LBK+8),bufer);return;}
+ if(oldx==0) {oldx=newx;getimage(xd+newx,(int)(ly+avptr->gbuf[chn][newx]*LBK),xd+newx+8,(int)(ly+avptr->gbuf[chn][newx]*LBK+8),bufer);}
+ putimage(oldx+xd,(int)(ly+avptr->gbuf[chn][oldx]*LBK),bufer,0);
+ getimage(newx+xd,(int)(ly+avptr->gbuf[chn][newx]*LBK),newx+8+xd,(int)(ly+avptr->gbuf[chn][newx]*LBK+8),bufer);
+ if(oldx!=0) outtextxy(newx+xd,(int)(ly+avptr->gbuf[chn][newx]*LBK),"");
+ oldx=newx;
+} /**/
+
+
+void gbred(int chn)  /* ¡p®¤¨â áâp¥«ª®© ¯® íªp ­ã*/
+{
+ int a,x1,t,s;
+ char bufer1[100];
+ static x,cho;
+ char bufer[2];
+ int xd=x0+49-3;
+ int ly=BGL*dly; /*7|5*/
+ float lpk=1.0; /*ª®¥ä ¯¥à¥å®¤  ®â ppp-prp ª ppl-prl*/
+ float kf=1.0;  /*ª®¥ä ¢¢®¤  ¤ ­­ëå ¨§  æ¯ ¢ avptr->gbuf*/
+ if(avptr->prmk[avptr->ach].ppl-avptr->prmk[avptr->ach].prl!=0)
+	kf= gvs/(float)(avptr->prmk[avptr->ach].ppl-avptr->prmk[avptr->ach].prl);
+ if(avptr->prmk[avptr->ach].ppp-avptr->prmk[avptr->ach].prp!=0)
+	lpk=((float)(avptr->prmk[avptr->ach].ppl-avptr->prmk[avptr->ach].prl)/(float)(avptr->prmk[avptr->ach].ppp-avptr->prmk[avptr->ach].prp));
+ if(chn!=cho)  {	x=avptr->pixx[chn][avptr->activpix[avptr->ach]]; adraw(0xfef,chn); }
+ mainh(0x44);
+ sprintf(bufer,"%c",65+avptr->activpix[avptr->ach]);
+ ly++;
+ if(x==0)  x=avptr->pixx[chn][avptr->activpix[avptr->ach]];
+ for(a=0;a!=27;a=getch2(8))
+ {
+  switch(a)
+  {
+   case 13 :if((x<1))  break;
+            if(avptr->pixx[chn][avptr->activpix[avptr->ach]]>5)
+            {
+						 x1=x; x=avptr->pixx[chn][avptr->activpix[avptr->ach]]; setcolor(cl0);
+             outtextxy(x+xd,(int)(ly+avptr->gbuf[chn][x]*LBK),"");
+             outtextxy(x+xd,(int)(ly+avptr->gbuf[chn][x]*LBK+9),bufer);
+             x=x1;
+             }
+            avptr->pixx[chn][avptr->activpix[avptr->ach]]=x;
+            setcolor(cl1);
+            outtextxy(x+xd,ly+avptr->gbuf[chn][x]*LBK,"");
+            outtextxy(x+xd,ly+avptr->gbuf[chn][x]*LBK+9,bufer);
+            adraw(0xfef,chn);
+            break;
+   case 75 :if(x>0) x--;break;
+	 case 77 :if(x<avptr->adclen[chn]) x++;break;  /*480*/
+   case 115 :if(x>10) x-=10;break;
+   case 116 :if(x<avptr->adclen[chn]-10) x+=10;break;   /*480*/
+   case 0  :break;
+  }
+ if((x!=0)&&(a!=0))
+        {
+				 adraw(x,chn);
+				 if(avptr->activpix[avptr->ach]==3)
+				 {
+					s=lpk*avptr->gbuf[avptr->ach][x]*100.0/gvs-lpk*kf*(avptr->prmk[avptr->ach].prp-avptr->prmk[avptr->ach].prl)*100/gvs;
+					t=x;
+					sprintf(bufer1,"T=%d(á¥ª), S=%d(%%), V=%2.2f(%%/á¥ª)",t,s,((float)s)/((float)t));
+					setviewport(250+x0,dly*19,550+x0,dly*20-3,1);
+					clearviewport();outtext(bufer1);
+					setviewport(0,0,639+x0,dly*25-3,1);
+				 }
+        }
+ }
+ cho=chn;
+}/**/
+
+void calc(int m)  /*¤¥« ¥â ä¨­ p áç¥âë ¨ ­  íªp ­*/
+{
+ int c;
+ int fsp=0;
+ char bufer[4][30];
+ float lpk=1.0; /*ª®¥ä ¯¥à¥å®¤  ®â ppp-prp ª ppl-prl*/
+ float kf=1.0;  /*ª®¥ä ¢¢®¤  ¤ ­­ëå ¨§  æ¯ ¢ avptr->gbuf*/
+ if(avptr->pixx[avptr->ach][3]-avptr->pixx[avptr->ach][0]<=0)
+	avptr->pixx[avptr->ach][0]=0;
+ if(avptr->pixx[avptr->ach][3]-avptr->pixx[avptr->ach][0]<=0) return;
+ if(avptr->pixx[avptr->ach][2]-avptr->pixx[avptr->ach][1]<=0) fsp=1;
+ if(avptr->prmk[avptr->ach].ppl-avptr->prmk[avptr->ach].prl!=0)
+	kf= gvs/(float)(avptr->prmk[avptr->ach].ppl-avptr->prmk[avptr->ach].prl);
+ if(avptr->prmk[avptr->ach].ppp-avptr->prmk[avptr->ach].prp!=0)
+	lpk=((float)(avptr->prmk[avptr->ach].ppl-avptr->prmk[avptr->ach].prl)/(float)(avptr->prmk[avptr->ach].ppp-avptr->prmk[avptr->ach].prp));
+ if(m) avptr->rez[avptr->ach].s=lpk*avptr->gbuf[avptr->ach][avptr->pixx[avptr->ach][3]]*100/gvs-lpk*avptr->gbuf[avptr->ach][avptr->pixx[avptr->ach][0]]*100/gvs;
+	else avptr->rez[avptr->ach].s=lpk*avptr->gbuf[avptr->ach][avptr->pixx[avptr->ach][3]]*100/gvs-lpk*kf*(avptr->prmk[avptr->ach].prp-avptr->prmk[avptr->ach].prl)/gvs*100;
+ avptr->rez[avptr->ach].v=avptr->rez[avptr->ach].s/((float)avptr->pixx[avptr->ach][3]-(float)avptr->pixx[avptr->ach][0]);
+ if(fsp==0) avptr->rez[avptr->ach].vmax=((float)(lpk*avptr->gbuf[avptr->ach][avptr->pixx[avptr->ach][1]]*100/gvs)
+			 -(float)(lpk*avptr->gbuf[avptr->ach][avptr->pixx[avptr->ach][2]]*100/gvs))/((float)avptr->pixx[avptr->ach][2]-(float)avptr->pixx[avptr->ach][1]);
+ avptr->rez[avptr->ach].t=avptr->pixx[avptr->ach][3]-avptr->pixx[avptr->ach][0];
+ setviewport(x0+439, 7*dly, 630+x0, 11*dly,1);
+ if(avptr->rez[avptr->ach].v<0) avptr->rez[avptr->ach].v=avptr->rez[avptr->ach].v*(-1);
+ if(avptr->rez[avptr->ach].vmax<0) avptr->rez[avptr->ach].vmax=avptr->rez[avptr->ach].vmax*(-1);
+ if(avptr->rez[avptr->ach].t<0) avptr->rez[avptr->ach].t=avptr->rez[avptr->ach].t*(-1);
+ sprintf(bufer[0],"S    = %5.1f(%)",avptr->rez[avptr->ach].s);
+ sprintf(bufer[1],"T    = %5.1f(á¥ª)",avptr->rez[avptr->ach].t);
+ sprintf(bufer[3],"Vmax = %5.2f(%/á¥ª)",avptr->rez[avptr->ach].vmax);
+ sprintf(bufer[2],"V    = %5.2f(%/á¥ª)",avptr->rez[avptr->ach].v);
+ clearviewport();
+ for(c=0;c<4;c++)
+ outtextxy(0,c*dly,bufer[c]);
+} /**/
+
+int pixn(char f)   /*0-Ž¡­ã«¨âì 1-à®¢¥à¨âì (0-0  1-1)*/
+{
+int a,b;
+if(f==0)  {for(a=0;a<4;a++) for(b=0;b<4;b++)  avptr->pixx[a][b]=0;avptr->activpix[avptr->ach]=0;}
+if(f>0)  for(a=0;a<4;a++) if(avptr->pixx[f-1][a]!=0) return 1;
+return 0;
+}
+
+
+
+
+void chncs(int cf) /*¢ë¡¨p ¥â ¨ píáã¥â ¡®«ìè £p ä¨ª*/
+{
+ int xd=x0+49-3;
+ int a,c,x;
+ int chb;
+ int ly=BGL*dly; /*7|5*/
+ char bufer[100];
+ char buff1[2];
+ char *buff;
+ if(cf==4)
+ {
+	mainh(0x33);
+	buff=malloc(imagesize(14+x0,17*dly,112+x0+24,dly*20-3));
+	getimage(14+x0,17*dly,112+x0+24,20*dly-3,buff);
+	setviewport(14+x0,17*dly,112+x0+24,20*dly-3,1); clearviewport();
+	setviewport(0,0,639+x0,dly*25-3,1);
+	line(14+x0,dly*17,12+12*8+x0+24,dly*17);
+	line(14+12*8+x0+24,dly*17,14+12*8+x0+24,dly*19);
+	line(14+x0,dly*19,12+12*8+x0+24,dly*19);
+	line(14+x0,dly*17,14+x0,dly*19);
+	setviewport(48+x0,dly*18,80+x0+24,dly*19-1,0);
+	for(c=0;c!=27;c=getch2(8))
+	{
+	 switch(c)
+	 {
+		case 72:if(avptr->ach<3) avptr->ach++;break;
+		case 80:if(avptr->ach>0) avptr->ach--;break;
+		case 13:ungetch(27);avptr->fun=1;break;
+		case 0 :break;
+	 }
+	 sprintf(bufer,"Š€€‹ %c",avptr->ach+49);
+	 clearviewport();
+	 outtextxy(0,0,bufer);
+	}
+	setviewport(0,0,639+x0,dly*25-3,1);
+	putimage(14+x0,17*dly,buff,0);
+	free(buff);
+ }
+ else if(cf>0) avptr->ach=cf;
+ grmene(1);
+ for(a=1;a<avptr->adclen[avptr->ach]-2;a++)
+	line(a+x0+49,ly+avptr->gbuf[avptr->ach][a]*LBK,a+x0+50,ly+avptr->gbuf[avptr->ach][a+1]*LBK);  /*1x1*/
+if(pixn(avptr->ach+1)==1)
+ for(chb=0;chb<4;chb++)
+  {
+   sprintf(buff1,"%c",65+chb);
+	 x=avptr->pixx[avptr->ach][chb];
+   setcolor(cl1);
+   ly++;
+   outtextxy(x+xd,ly+avptr->gbuf[avptr->ach][x]*LBK,"");
+   outtextxy(x+xd,ly+avptr->gbuf[avptr->ach][x]*LBK+9,buff1);
+   ly--;
+  }
+ calc(0);
+ sprintf(bufer,"T=%d(á¥ª), S=%d(%%), V=%2.2f(%%/á¥ª)",(int)avptr->rez[avptr->ach].t,(int)avptr->rez[avptr->ach].s,avptr->rez[avptr->ach].v);
+ setviewport(250+x0,dly*19,550+x0,dly*20-3,1); clearviewport();outtext(bufer);
+ setviewport(0,0,639+x0,dly*25-3,1);
+} /*‚ë¤à âì*/
+
+
+
+void pixcs(void) /*¢ë¡®p  ªâ â®çª¨*/
+{
+ int a,c;
+ char bufer[15];
+ char *buff;
+ buff=malloc(imagesize(528+x0,17*dly,624+x0+14,dly*20-2));
+ getimage(528+x0,17*dly,624+x0+14,20*dly-2,buff);
+ setviewport(528+x0,17*dly,624+x0+14,20*dly-2,1);
+ clearviewport();
+ setviewport(10+x0,dly*23,600+x0+24,dly*24-1,1);
+ clearviewport();
+ setviewport(0,0,639+x0,dly*25-3,1);
+ outtextxy(10+x0,dly*23,", - ¢ë¡®p â®çª¨, Enter - ¢ëå®¤");
+ line(528+x0,dly*17,528+12*8+x0+10,dly*17);
+ line(528+12*8+x0+10,dly*17,528+12*8+x0+10,dly*19);
+ line(528+x0,dly*19,528+12*8+x0+10,dly*19);
+ line(528+x0,dly*17,528+x0,dly*19);
+ setviewport(560+x0,dly*18,592+x0+24,dly*19-1,0);
+ for(c=0;c!=27;c=getch2(8))
+ {
+  switch(c)
+  {
+   case 72:if(avptr->activpix[avptr->ach]<3) avptr->activpix[avptr->ach]++;break;
+   case 80:if(avptr->activpix[avptr->ach]>0) avptr->activpix[avptr->ach]--;break;
+	 case 13:ungetch(27);avptr->fun=1;break;
+   case 0 :break;
+  }
+  sprintf(bufer,"’Ž—Š€ %c",avptr->activpix[avptr->ach]+65);
+  clearviewport();
+  outtextxy(0,0,bufer);
+ }
+
+ setviewport(0,0,639+x0,dly*25-3,1);
+ putimage(528+x0,17*dly,buff,0);
+ free(buff);
+ gbred(avptr->ach);
+} /**/
+
+
+
+
+
+void grpprc(int prc) /* */
+{
+/*Š€€‹ ,…—€’œ ,‚›•Ž„ ,€‘—…’ ,‚›Ž ’Ž—Šˆ*/
+ switch(prc)
+ {
+	case 0:chncs(4);break;
+	case 1:calc(1);prnwindow();break;
+	case 2:ungetch(27);avptr->fun=1;break;
+	case 3:calc(1);break;
+  case 4:pixcs();break;
+ }
+} /**/
+
+void trnbuff(int a)
+{
+int c,prpg;
+int oldmaxdel;
+char max,min;
+float kf=1.0;
+float fmin;
+char *buff;
+char text[50];
+avptr->activpix[avptr->ach]=3;
+setviewport(0,0,639+x0,dly*25-3,1);
+buff=malloc(imagesize(200+x0,6*dly,440+x0,14*dly));
+getimage(200+x0,6*dly,440+x0,14*dly,buff);
+setviewport(200+x0,6*dly,440+x0,14*dly,1);
+clearviewport();
+line(0,0,0,8*dly);
+line(240,0,240,8*dly);
+line(0,0,240,0);
+line(0,8*dly,240,8*dly);
+outtextxy(0,dly*1,"     ‘ˆ‘’…Œ€ Ž€€’›‚€…’  ");
+sprintf(text,"     „€›… „‹Ÿ %d Š€€‹€  ",a+1);
+outtextxy(0,dly*2,text);
+sprintf(text,"    Ž–…Ž—Ž… ‚…ŒŸ %d ‘…Š  ",avptr->adclen[a]/4+1);
+outtextxy(0,dly*3,text);
+outtextxy(0,dly*5-8,"   ÚÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄÂÄÄÄÄÄ¿  ");
+outtextxy(0,dly*5,"   ³  1  ³  2  ³  3  ³  4  ³  ");
+outtextxy(0,dly*5+8,"   ÀÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÁÄÄÄÄÄÙ  ");
+outtextxy(0,dly*7,"        ‘’€„ˆŸ Ž€Ž’Šˆ      ");
+setviewport(0,0,639+x0,dly*25-3,1);
+inblok(1+28,5+6,5);
+kf=gvs/(avptr->prmk[a].ppl-avptr->prmk[a].prl);
+prpg=(int)((avptr->prmk[a].prp-avptr->prmk[a].prl)*kf);
+
+for(c=0;c<avptr->adclen[a];c++)
+	 if(avptr->gbuf[a][c]<prpg) avptr->gbuf[a][c]=prpg;
+max=0;min=255;
+for(c=0;c<avptr->adclen[a];c++) if(avptr->gbuf[a][c]<min) min=avptr->gbuf[a][c];
+for(c=0;c<avptr->adclen[a];c++) if(avptr->gbuf[a][c]>max) max=avptr->gbuf[a][c];
+
+	if(nok(avptr->gbuf[a],avptr->adclen[a],avptr->apprx,avptr->funkoef))
+    {
+		 putimage(200+x0,6*dly,buff,0);
+     free(buff);
+     return;
+    }
+inblok(7+28,5+6,5);
+for(c=0;c<avptr->adclen[a];c++)    avptr->gbuf[a][c]=func(c);
+inblok(13+28,5+6,5);
+for(c=0;c<avptr->adclen[a];c++) if(avptr->gbuf[a][c]<min) avptr->gbuf[a][c]=min;
+for(c=0;c<avptr->adclen[a];c++) if(avptr->gbuf[a][c]>max) avptr->gbuf[a][c]=max;  /*0-000000*/
+avptr->pixx[a][0]=5;
+oldmaxdel=0;
+for(c=1;c<avptr->adclen[a]-LENR;c++) if((avptr->gbuf[a][c+LENR]-avptr->gbuf[a][c])>oldmaxdel) {oldmaxdel=avptr->gbuf[a][c+LENR]-avptr->gbuf[a][c];avptr->pixx[a][1]=c;avptr->pixx[a][2]=c+LENR;}
+oldmaxdel=0;
+for(c=1;c<avptr->adclen[a];c++) if((c>avptr->pixx[a][2])&&(avptr->gbuf[a][c]>oldmaxdel)) {oldmaxdel=avptr->gbuf[a][c];avptr->pixx[a][3]=c;}
+
+fmin=(avptr->gbuf[a][avptr->pixx[a][3]]-avptr->gbuf[a][avptr->pixx[a][0]])/((float)(avptr->pixx[a][3]-avptr->pixx[a][0]))*DPIXCOEF;
+for(c=avptr->pixx[a][2];c<avptr->pixx[a][3];c++)
+				 if((float)(avptr->gbuf[a][c+LENR]-avptr->gbuf[a][c])/(float)LENR<fmin)
+																									avptr->pixx[a][3]=c;
+
+inblok(19+28,5+6,5);
+setviewport(0,0,639+x0,dly*25-3,1);
+putimage(200+x0,6*dly,buff,0);
+free(buff);
+}
+
+void trner(void)
+{
+ trnbuff(avptr->ach);
+ chncs(avptr->ach);
+}
+
+
+
+
+void gredm(void) /*å®¤¨â ¯® ¯®á«¥¤­¥¬ã ¬¥­î*/
+{
+ int  a,c,g,x=0;
+ char buferf[10];
+ if(avptr->treatflag==0xff)
+	for(a=0;a<4;a++) trnbuff(a);
+ mainh(x+20);
+ inblok(x*16+1,21,14);
+ setviewport(x0+292,9,x0+348,dly+3,1);
+ clearviewport();
+ sprintf(buferf,"ª ­ « %d",avptr->ach+1);
+ outtext(buferf);
+ setviewport(0,0,639+x0,dly*25-3,1);
+ if(mixf) {MIX_OFF();mixf=0;}
+ for(a=0;1;a=getch2(8))
+ {
+  switch(a)
+    {
+     case 0  : break;
+     case 75 : inblok(x*16+1,21,14);if(x>0) x--;else x=4;inblok(x*16+1,21,14);break;
+		 case 77 : inblok(x*16+1,21,14);if(x<4) x++;else x=0;inblok(x*16+1,21,14);break;
+		 case 59 : help();break;
+		 case 60 : savbvar();break;
+		 case 61 : savfnvar();break;
+		 case 64 : if(avptr->ach>3) break;
+							 if(avptr->ach<0) break;
+							 if(x==3)  {trner();break;}
+							 if(x==1)  {calc(1);blank();}
+								 break;
+		 case 13 : if(avptr->ach>3) break;
+							 if(avptr->ach<0) break;
+							 if(avptr->activpix[avptr->ach]>3) break;
+							 if(avptr->activpix[avptr->ach]<0) break;
+               if(x==2)
+        {
+					setviewport(x0+292,0,x0+348,dly-6,1);
+          clearviewport();
+          setviewport(0,0,639+x0,dly*25-3,1);
+					outportb(CTL,ctlcop);
+          return;
+        }
+              grpprc(x);break;
+    }
+		setviewport(x0+292,9,x0+348,dly+3,1);
+    clearviewport();
+    sprintf(buferf,"ª ­ « %d",avptr->ach+1);
+    outtext(buferf);
+    setviewport(0,0,639+x0,dly*25-3,1);
+	if(a!=0) mainh(x+20);
+  if(mixf) {MIX_OFF();mixf=0;}
+ }
+}
+
+
+int mproc(int x)                           /*£« ¢­ë© á¢¨âç*/
+{
+int c=0;
+switch(x)
+ {
+ case 0 : c=pppset();  break;
+ case 1 : c=prpset();  break;
+ case 2 : blnclr(); process(); break;
+ case 3 : chnset();  break;
+ case 4 : speedset();break;
+ }
+return c;
+} /*mproc*/
+
+
+
+void  mainm(void)
+{
+int  a,c,g,x=0;
+  if(avptr->invflag==1)
+     {inblok(x*16+1,21,14);
+      avptr->invflag=0;
+      for(c=0;c<4;c++)
+				 {avptr->prmk[c].p=0.0;avptr->prmk[c].t=0;avptr->prmk[c].ppp=0;avptr->prmk[c].prp=0;}
+      }
+mainh(x);
+if(mixf) {MIX_OFF();mixf=0;}
+for(a=0;a!=68;a=getch1(0))
+  {
+  switch(a)
+    {
+     case 0  : break;
+     case 75 : inblok(x*16+1,21,14);if(x>0) x--;else x=4;inblok(x*16+1,21,14);break;
+		 case 77 : inblok(x*16+1,21,14);if(x<4) x++;else x=0;inblok(x*16+1,21,14);break;
+		 case 60 : if(loadbvar()==27) return; avptr->invflag=1; break;
+		 case 61 : if(loadfnvar()==27)  break;avptr->invflag=1; break;
+		 case 59 : help();break;
+     case 13 :
+							 if(mproc(x))   {inblok(x*16+1,21,14);x++;inblok(x*16+1,21,14);}
+               break;
+    }
+	if(avptr->invflag==1) {inblok(x*16+1,21,14);avptr->invflag=0;for(a=0;a<4;a++) {avptr->prmk[a].t=0;avptr->fxl=1;prmscr(a);} }
+ if(a!=0) mainh(x);
+ if(mixf) {MIX_OFF();mixf=0;}
+ }
+} /* mainm*/
+
+
+main()
+{
+ int     grdr = HERCMONO;
+ int     grmod = HERCMONOHI;
+ int a;
+ aae();
+ iniwrkav();
+ instald();
+ SEG_DRB=FP_SEG(& DRB);
+ OFF_DRB=FP_OFF(& DRB);
+ if(egmd==1) {grdr=EGA;grmod=EGAHI;x0=0;cl1=15;}
+ if(egmd!=1) intext(1);
+ initgraph(&grdr, &grmod,"");
+ if(v2) {if(!mixf) {MIX_ON();mixf=1;} delms(2000);}
+ aae(); akd();
+ wtemp();
+ rmkl();
+ for(a=0;a<4;a++) prmscr(a);
+ mainm();
+ closegraph();
+ if(egmd!=1) intext(0);
+ aad(); akd();
+ if(v2) {if(mixf) {MIX_OFF();mixf=0;}}
+ hardoff();
+}
+

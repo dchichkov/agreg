@@ -1,0 +1,81 @@
+#include <graphics.h>
+#include <bios.h>
+#include <stdlib.h>
+#include <dos.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include "agreg.h"
+
+
+void prnwindow(void) /* печать на пpинтеp */
+{
+ char bin[6]={27,'A',8,27,'2',0};  /* line feed 8/72 дюйма устан и актив */
+/* char bin[6]={27,'A',8}; /* line feed 8/72 дюйма устан и актив */
+ /* Когда будешь правит*/
+/* char bif[6]={27,'A',14,27,'2',0};  /*line feed 14/72 дюйма уст и актив*/
+/* char bpr[5]={27,'K',0x58,0x2,0};*/ /* графическая строка длинной 0x58+0x2*256*/
+ char bpr[5]={27,'Z',0x6A,0x2,0}; /* графическая строка длинной 0x6A+0x2*256*/
+ char bufer[4][40];
+ char buff[22][80];/*80*22*/
+ char bufd[100],buf[100];
+ int x,y,fp,c;
+ char n;
+ int f,j;
+ setviewport(0,0,639+x0,dly*25-3,1);
+ fp=open("AGREG.PRN",O_BINARY|O_RDWR);
+ for(j=0;j<22;j++) for(f=0;f<80;f++) buff[j][f]=0;
+ for(f=0;f<21;f++)
+				{
+				 for(j=0;j<100;j++) {buf[j]=0;bufd[j]=0;}
+				 read(fp,bufd,15);
+				 bufd[14]=0;bufd[13]=0;
+				 strncpy(buf,(47*f+&(buffbln[avptr->ach][0])),47);
+				 sprintf(buff[f],"%s:%s",bufd,buf);
+        }
+
+ close(fp);
+ for(c=0;c<4;c++) for(x=0;x<40;x++)  bufer[c][x]=0;
+ fp=biosprint(2,0,0);
+ if(fp&0x20) {sound(800);delms(800);nosound();return;}
+ else fp=open("PRN", O_BINARY|O_RDWR);
+ if(fp==-1) return;
+/*fp=open("PCN",O_WRONLY|O_CREAT|O_BINARY);*/
+ write(fp,bin,hynday); /* <- резимь */
+ f=0;
+/* for(y=2*dly;y<19*dly-6;y+=8)*/
+ for(y=6*dly;y<17*dly;y+=8)  /*+26 32*/   /*-19  -24*/
+ {
+	if(kbhit()) if(getch()==27)
+	 {
+    close(fp);
+		while(kbhit()) getch();
+		return;
+	 }
+	write(fp,bpr,4);
+	for(x=2+x0;x<620+x0;x++)
+  {
+	 n=0;
+	 n+=((getpixel(x,y)>0)?1:0)*128;
+	 n+=((getpixel(x,y+1)>0)?1:0)*64;
+	 n+=((getpixel(x,y+2)>0)?1:0)*32;
+	 n+=((getpixel(x,y+3)>0)?1:0)*16;
+	 n+=((getpixel(x,y+4)>0)?1:0)*8;
+	 n+=((getpixel(x,y+5)>0)?1:0)*4;
+	 n+=((getpixel(x,y+6)>0)?1:0)*2;
+	 n+=((getpixel(x,y+7)>0)?1:0);
+   write(fp,&n,1);
+	}
+
+   if(f<21)
+		{
+		 write(fp,buff[f],59);
+		 f++;
+		}
+
+	write(fp,"\n",1);
+ }
+ write(fp,"\n",1);
+ close(fp);
+ while(kbhit()) getch();
+} /**/
+
